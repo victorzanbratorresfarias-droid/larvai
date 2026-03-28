@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Larvai PRO</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #111;
+      color: white;
+      text-align: center;
+    }
+
+    button {
+      padding: 10px;
+      margin: 5px;
+      cursor: pointer;
+    }
+
+    #galeria {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .card {
+      margin: 10px;
+    }
+
+    img {
+      width: 200px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>📚 Larvai PRO</h1>
+
+<button onclick="login()">Login con Google</button>
+<button onclick="logout()">Logout</button>
+
+<p id="estado">No conectado ❌</p>
+
+<div id="subida" style="display:none;">
+  <input type="file" id="fileInput">
+  <button onclick="subir()">Subir cómic</button>
+</div>
+
+<h2>Galería global 🌍</h2>
+<div id="galeria"></div>
+
+<!-- ✅ Firebase moderno (IMPORTANTE) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"
+  import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"
+
+  // 🔥 PEGA TU CONFIG REAL AQUÍ
+  const firebaseConfig = {
+    apiKey: "AIzaSyD_oRaTSVrWTPcOTOImLrDUKj8ZE2Qgonw",
+    authDomain: "larvai-5b3a5.firebaseapp.com",
+    projectId: "larvai-5b3a5",
+    storageBucket: "larvai-5b3a5.firebasestorage.app",
+    messagingSenderId: "307118531666",
+    appId: "1:307118531666:web:8f8ad56b35d903b534eb8b"
+  }
+
+  const app = initializeApp(firebaseConfig)
+  const auth = getAuth(app)
+  const db = getFirestore(app)
+  const storage = getStorage(app)
+
+  let usuario = null
+
+  const estado = document.getElementById("estado")
+  const galeria = document.getElementById("galeria")
+  const subida = document.getElementById("subida")
+
+  // 🔐 LOGIN
+  window.login = async function () {
+    const provider = new GoogleAuthProvider()
+    await signInWithPopup(auth, provider)
+  }
+
+  window.logout = async function () {
+    await signOut(auth)
+  }
+
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      usuario = user
+      estado.innerText = "Conectado: " + user.displayName
+      subida.style.display = "block"
+    } else {
+      usuario = null
+      estado.innerText = "No conectado ❌"
+      subida.style.display = "none"
+    }
+  })
+
+  // ☁️ SUBIR
+  window.subir = async function () {
+    if (!usuario) {
+      return alert("Debes iniciar sesión")
+    }
+
+    const file = document.getElementById("fileInput").files[0]
+    if (!file) return alert("Selecciona imagen")
+
+    const storageRef = ref(storage, "comics/" + Date.now())
+
+    await uploadBytes(storageRef, file)
+    const url = await getDownloadURL(storageRef)
+
+    await addDoc(collection(db, "comics"), {
+      url: url,
+      user: usuario.displayName
+    })
+  }
+
+  // 🌍 MOSTRAR EN TIEMPO REAL
+  onSnapshot(collection(db, "comics"), snapshot => {
+    galeria.innerHTML = ""
+
+    snapshot.forEach(doc => {
+      const data = doc.data()
+
+      const div = document.createElement("div")
+      div.className = "card"
+
+      const img = document.createElement("img")
+      img.src = data.url
+
+      const user = document.createElement("p")
+      user.innerText = data.user
+
+      div.appendChild(img)
+      div.appendChild(user)
+
+      galeria.appendChild(div)
+    })
+  })
+</script>
+
+</body>
+</html>
